@@ -8,34 +8,44 @@ var SmartBuffer = require('smart-buffer');
 var pipeline = require('when/pipeline');
 var usart = require('./lib/usart');
 var hex = require('./lib/hex');
+var bin = require('./lib/bin');
 var when = require('when');
+var fs = require('fs');
 var ProgressBar = require('progress');
 
 cli.option_width = 30;
 
 cli.parse({
-    dev:       ['d',    'Set serial port device', 'string', '/dev/ttyUSB0'],
+    dev:       ['d', 'Set serial port device', 'string', '/dev/ttyUSB0'],
     // file:      ['f',    'Set file to load', 'string'],
-    baudrate:  ['b',    'Set baud rate', 'number', 230400],
-    verify:    ['v',    'Verify the data'],
+    baudrate:  ['b', 'Set baud rate', 'number', 230400],
+    verify:    ['v', 'Verify the data'],
+    hex:       [undefined, 'HEX file to load', 'string'],
+    bin:       [undefined, 'BIN file to load', 'string'],
 });
 
 
 cli.main(function (args, options) {
 
-    if (args.length <= 0) {
-        console.error('The file must be specified')
-        return;
-    }
-
     var devPath = options.dev || '/dev/ttyUSB0';
     var baudrate = options.baudrate || 230400;
 
-    var hexObj = hex.parse(args[0]);
+    var blocks = null;
+
+    if (options.hex) {
+        var hexObj = hex.parse(options.hex);
+        blocks = hexObj.blocks;
+    } else if (options.bin) {
+        var binObj = bin.parse(options.bin);
+        blocks = binObj.blocks;
+    } else {
+        console.error('The HEX or BIN file must be specified')
+        return;
+    }
 
     var bar = new ProgressBar(':bar :percent', {
         width: 40,
-        total: hexObj.blocks.length
+        total: blocks.length
     });
 
     usart.open(devPath, baudrate).then(function(device) {
@@ -46,12 +56,12 @@ cli.main(function (args, options) {
         }
 
         function predicate(index) {
-            return index >= hexObj.blocks.length;
+            return index >= blocks.length;
         }
 
         function writeBlock(value) {
             return when.promise(function(resolve, reject, notify) {
-                var block = hexObj.blocks[value];
+                var block = blocks[value];
                 var address = block.address;
                 var data = block.data;
                 device.writeMemory(address, data).then(function() {
@@ -64,7 +74,7 @@ cli.main(function (args, options) {
         }
 
         function go() {
-            var address = hexObj.blocks[0].address;
+            var address = blocks[0].address;
             device.go(address).then(function() {
                 console.log('UPLOAD COMPLETED, RTS PULL DOWN');
                 device.close();
