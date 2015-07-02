@@ -1,6 +1,6 @@
 {
   "name": "usart",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "USART protocol used in the STM32 bootloader",
   "bin": {
     "usart": "index.js"
